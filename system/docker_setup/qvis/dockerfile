@@ -1,0 +1,36 @@
+FROM qvis/wireshark:latest
+MAINTAINER Robin Marx <robin.marx@uhasselt.be>
+
+# sudo docker build -t qvis/server:latest qvis/
+# sudo docker run --privileged --name qvis_server -d qvis/server:qvis
+# sudo docker exec -it qvis_server bash
+
+		
+# install necessary packages
+RUN 						\
+	apt-get update 			\
+	&& apt-get upgrade -y 	\
+	&& apt-get install -y curl \
+    && curl -sL https://deb.nodesource.com/setup_9.x | bash - \
+    && apt-get install -y nodejs git-core \	
+    && apt-get autoremove 	\
+    && apt-get clean		\
+	&& rm -rf /var/lib/apt/lists/*
+	
+RUN git clone --depth 1 https://github.com/quiclog/pcap2qlog.git /srv/pcap2qlog \
+  && cd /srv/pcap2qlog \
+  && npm install \
+  && node_modules/typescript/bin/tsc -p .
+
+# TODO: checkout the actual expressjs qvis server app and build it
+# /srv/qvisserver
+# then copy the qvis/dist folder over to /public in the expressjs app
+
+RUN git clone --depth 1 https://github.com/rmarx/qvis.git /srv/qvis \
+  && cd /srv/qvis/visualizations \
+  && npm install \
+  && npm run build
+
+CMD [ "tail", "-f", "/dev/null" ]
+	
+
