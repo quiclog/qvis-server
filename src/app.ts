@@ -13,6 +13,19 @@ class App {
     }
 
     private config(): void {
+
+
+        // https://www.tonyerwin.com/2014/09/redirecting-http-to-https-with-nodejs.html
+        this.app.use(function (req, res, next) {
+            if (req.secure) {
+                // request was via https, so do no special handling
+                next();
+            } else {
+                // request was via http, so redirect to https
+                res.redirect('https://' + req.headers.host + req.url);
+            }
+        });
+
         // support application/json
         this.app.use(bodyParser.json());
         //support application/x-www-form-urlencoded post data

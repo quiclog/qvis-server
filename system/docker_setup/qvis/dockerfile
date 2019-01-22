@@ -36,7 +36,10 @@ RUN git clone --depth 1 https://github.com/rmarx/qvis.git /srv/qvis \
   && npm run build \
   && cp -r /srv/qvis/visualizations/dist /srv/qvisserver/out/public
 
-RUN echo "robin fuckt de cache 5"
+RUN mkdir /srv/certs
+ADD star_edm_uhasselt_be_allinone.crt /srv/certs
+ADD star_edm_uhasselt_be_allinone.key /srv/certs
+
 ADD startup.sh /
 RUN chmod +x /startup.sh
 ENTRYPOINT ["/startup.sh"]
