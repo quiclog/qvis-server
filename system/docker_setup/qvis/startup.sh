@@ -1,6 +1,7 @@
 #!/bin/sh
+# it is VERY IMPORTANT this file is saved with LF line-ending (not CRLF) or it won't work!
 
-echo "Pulling from qvis-server repo"
+echo "Pulling from qvis-server repo to update system/docker_setup/startup/startup.sh"
 cd /srv/qvisserver
 git pull origin master
 

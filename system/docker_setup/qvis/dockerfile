@@ -2,7 +2,7 @@ FROM qvis/wireshark:latest
 MAINTAINER Robin Marx <robin.marx@uhasselt.be>
 
 # sudo docker build -t qvis/server:latest qvis/
-# sudo docker run --privileged --name qvis_server -d qvis/server:qvis
+# sudo docker run --privileged --name qvis_server -d qvis/server:latest
 # sudo docker exec -it qvis_server bash
 
 		
@@ -22,15 +22,23 @@ RUN git clone --depth 1 https://github.com/quiclog/pcap2qlog.git /srv/pcap2qlog 
   && npm install \
   && node_modules/typescript/bin/tsc -p .
 
-# TODO: checkout the actual expressjs qvis server app and build it
-# /srv/qvisserver
-# then copy the qvis/dist folder over to /public in the expressjs app
+RUN git clone --depth 1 https://github.com/quiclog/qvis-server.git /srv/qvisserver \
+  && cd /srv/qvisserver \
+  && npm install \
+  && node_modules/typescript/bin/tsc -p . \
+  && mkdir /srv/qvisserver/out/public
+
+# TODO: copy the qvis/dist folder over to /public in the expressjs app
 
 RUN git clone --depth 1 https://github.com/rmarx/qvis.git /srv/qvis \
   && cd /srv/qvis/visualizations \
   && npm install \
-  && npm run build
+  && npm run build \
+  && cp -r /srv/qvis/visualizations/dist /srv/qvisserver/out/public
 
-CMD [ "tail", "-f", "/dev/null" ]
+RUN echo "robin fuckt de cache 5"
+ADD startup.sh /
+RUN chmod +x /startup.sh
+ENTRYPOINT ["/startup.sh"]
 	
 
