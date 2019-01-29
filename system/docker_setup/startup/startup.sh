@@ -18,8 +18,9 @@ cd /srv/qvisserver
 npm install
 ./node_modules/typescript/bin/tsc -p .
 
-echo "---> Step 3: updating qvis"
+echo "---> Step 3: updating qvis (this will take a while during webpack compilation)"
 cd /srv/qvis/visualizations
+git checkout -- package-lock.json # for some very strange and unknown reason, this gets updated locally before the pull... drop those changes
 git pull origin master
 npm install
 npm run build
