@@ -22,6 +22,10 @@ class App {
                 next();
             } else {
                 // request was via http, so redirect to https
+                // NOTE: FIXME: this will not work if we use non-standard ports (e.g., not 80/443)
+                // in that case, we need to hard-code (or pass in as parameters) the actual ports here 
+                // and adjust them as needed
+                // (req.headers.host does include the port if set, so we can just do string.replace)
                 res.redirect('https://' + req.headers.host + req.url);
             }
         });

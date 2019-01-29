@@ -9,9 +9,14 @@ class MainRoutes {
     }
 
     private config(): void {
+
+        this.router.get("/loadfiles/", fileFetchController.load);
+
+        /*
         this.router.get("/*", (req: express.Request, res: express.Response) => {
             fileFetchController.root(req, res);
         });
+        */
     }
 }
 
