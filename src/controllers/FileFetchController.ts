@@ -95,7 +95,7 @@ export class FileFetchController {
             }
 
             const captureList = {
-                desc: req.query.desc || "Generated " + (new Date().toLocaleString()),
+                description: req.query.desc || "Generated " + (new Date().toLocaleString()),
                 paths: captures
             }
 
@@ -128,6 +128,7 @@ export class FileFetchController {
         try{
             let fileName:string = await Pcap2Qlog.Transform(options);
             console.log("Sending back ", fileName);
+            //fileName = "/srv/qvis-cache/cache/9ad6e575fae6fe2295ea249a52379cfa8c2552fd_real.qlog"; // FIXME: REMOVE : ONLY FOR DEBUG!
             let fileContents:Buffer = await readFileAsync( fileName );
 
             if( tempListFilePath ){
