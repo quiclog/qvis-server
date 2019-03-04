@@ -63,14 +63,12 @@ RUN git clone --depth 1 https://github.com/BelledonneCommunications/bcg729 /bcg7
     && make \
     && make install
 
-# TODO: switch to stable downlaod link (e.g., https://www.wireshark.org/download.html) because this one gets removed every day apparently...
-# see also https://www.wireshark.org/docs/wsdg_html_chunked/ChSrcObtain.html
-# https://github.com/wireshark/wireshark/archive/19630453bfc6873c3b320f369fd2c811ee9d5176.zip is the first to contain "full" QUIC draft-17 support
+# https://github.com/wireshark/wireshark/archive/812afa8065468f1c2d9fef864cc696bf8c227a36.zip is the commit at february 27th when we last updated
 RUN mkdir /wiresharksrc \
     && cd /wiresharksrc \ 
-    && wget https://github.com/wireshark/wireshark/archive/19630453bfc6873c3b320f369fd2c811ee9d5176.zip \
-    && unzip 19630453bfc6873c3b320f369fd2c811ee9d5176.zip \
-    && rm -f 19630453bfc6873c3b320f369fd2c811ee9d5176.zip
+    && wget https://github.com/wireshark/wireshark/archive/812afa8065468f1c2d9fef864cc696bf8c227a36.zip \
+    && unzip 812afa8065468f1c2d9fef864cc696bf8c227a36.zip \
+    && rm -f 812afa8065468f1c2d9fef864cc696bf8c227a36.zip
  
 #RUN apt-get update && apt-get install -y python3 gcc 
 #RUN apt-get install -y qttools5-dev qttools5-dev-tools 
@@ -78,7 +76,7 @@ RUN mkdir /wiresharksrc \
 
 RUN mkdir /wireshark \ 
     && cd /wireshark \ 
-    && cmake -DBUILD_wireshark=OFF -DBUILD_mergecap=OFF -DBUILD_dftest=OFF -DBUILD_randpkt=OFF -DBUILD_dumpcap=OFF -DBUILD_rawshark=OFF -DENABLE_PCAP=OFF -DENABLE_PLUGINS=OFF /wiresharksrc/wireshark-19630453bfc6873c3b320f369fd2c811ee9d5176 \ 
+    && cmake -DBUILD_wireshark=OFF -DBUILD_mergecap=OFF -DBUILD_dftest=OFF -DBUILD_randpkt=OFF -DBUILD_dumpcap=OFF -DBUILD_rawshark=OFF -DENABLE_PCAP=OFF -DENABLE_PLUGINS=OFF /wiresharksrc/wireshark-812afa8065468f1c2d9fef864cc696bf8c227a36 \ 
     && make
 
 
