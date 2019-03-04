@@ -11,11 +11,13 @@ TAG=$1
 # wireshark base-image
 cd /srv/qvisserver/system/docker_setup/
 sudo docker build --no-cache -t qvis/wireshark:$TAG wireshark/
-sudo docker tag -f qvis/wireshark:$TAG qvis/wireshark:latest
+sudo docker tag qvis/wireshark:$TAG qvis/wireshark:latest
 
 # qvisserver module
 cd /srv/qvisserver/system/docker_setup/
 sudo docker build --no-cache -t qvis/server:$TAG qvis/
-sudo docker tag -f qvis/server:$TAG qvis/server:latest
+sudo docker tag qvis/server:$TAG qvis/server:latest
 
-
+# code to publish on docker hub
+# sudo docker tag qvis/server:latest quiclog/server:latest
+# sudo docker push quiclog/server:latest
