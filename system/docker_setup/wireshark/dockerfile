@@ -63,12 +63,12 @@ RUN git clone --depth 1 https://github.com/BelledonneCommunications/bcg729 /bcg7
     && make \
     && make install
 
-# https://github.com/wireshark/wireshark/archive/v3.1.1rc0.zip is the version which was used to test pcap2qlog
+# https://github.com/wireshark/wireshark/commit/19488f334dfe8d1cf8bc0a80726069e88a2f6335 // draft-22 support with inclusion of packet_length for pcap2qlog in this specific commit 
 RUN mkdir /wiresharksrc \
     && cd /wiresharksrc \ 
-    && wget https://github.com/wireshark/wireshark/archive/v3.1.1rc0.zip \
-    && unzip v3.1.1rc0.zip \
-    && rm -f v3.1.1rc0.zip
+    && wget https://github.com/wireshark/wireshark/archive/19488f334dfe8d1cf8bc0a80726069e88a2f6335.zip \ 
+    && unzip 19488f334dfe8d1cf8bc0a80726069e88a2f6335.zip \
+    && rm -f 19488f334dfe8d1cf8bc0a80726069e88a2f6335.zip
  
 #RUN apt-get update && apt-get install -y python3 gcc 
 #RUN apt-get install -y qttools5-dev qttools5-dev-tools 
@@ -76,7 +76,7 @@ RUN mkdir /wiresharksrc \
 
 RUN mkdir /wireshark \ 
     && cd /wireshark \ 
-    && cmake -DBUILD_wireshark=OFF -DBUILD_mergecap=OFF -DBUILD_dftest=OFF -DBUILD_randpkt=OFF -DBUILD_dumpcap=OFF -DBUILD_rawshark=OFF -DENABLE_PCAP=OFF -DENABLE_PLUGINS=OFF /wiresharksrc/wireshark-3.1.1rc0 \ 
+    && cmake -DBUILD_wireshark=OFF -DBUILD_mergecap=OFF -DBUILD_dftest=OFF -DBUILD_randpkt=OFF -DBUILD_dumpcap=OFF -DBUILD_rawshark=OFF -DENABLE_PCAP=OFF -DENABLE_PLUGINS=OFF /wiresharksrc/wireshark-19488f334dfe8d1cf8bc0a80726069e88a2f6335 \ 
     && make
 
 
