@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import * as fs from "fs";
 import * as path from "path";
 import {promisify} from "util";
+const URL = require("url").URL;
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 const removeFileAsync = promisify(fs.unlink);
@@ -23,8 +24,65 @@ export class FileFetchController {
     public async load(req: Request, res: Response) {
         console.log("/loadfiles ", req.query);
 
+        let validateURL = function(url:string, res: Response):boolean | string {
+            if( url === undefined || url === "" ){
+                console.error("Empty URL passed. If you're setting file=, make sure to set secret= as well!");
+                res.status(500).send( { "error": "Empty URL passed. If you're setting file=, make sure to set secret= as well! "} );
+                return false;
+            }
+
+            try{
+                let validURL = new URL(url); // the ctor validates the URL.
+            }
+            catch(e){
+                console.error("malformed url requested! ", url, e);
+                res.status(500).send( { "error": "Malformed URL import. URL must include http(s):// : " + (e as TypeError).name + " : " + url} );
+                return false;
+            }
+
+            // URL validator apparently doesn't work 100%, so perform some additional regex magics
+            // https://github.com/xxorax/node-shell-escape/blob/master/shell-escape.js
+            // https://github.com/ogt/valid-url/blob/master/index.js
+
+            // check invalid characters
+            if (/[^a-z0-9\:\/\?\#\|\[\]\@\!\$\&\'\(\)\*\+\,\;\=\.\-\_\~\%]/i.test(url)){
+                console.error("invalid character present", url);
+                res.status(500).send( { "error": "Invalid URL import. : " + url} );
+                return false;
+            }
+
+            // check for hex escapes that aren't complete
+            if (/%[^0-9a-f]/i.test(url)) {
+                console.error("invalid character present", url);
+                res.status(500).send( { "error": "Invalid URL import. : " + url} );
+                return false;
+            }
+            if (/%[0-9a-f](:?[^0-9a-f]|$)/i.test(url))  {
+                console.error("invalid character present", url);
+                res.status(500).send( { "error": "Invalid URL import. : " + url} );
+                return false;
+            }
+
+            // https://stackoverflow.com/questions/49512370/sanitize-user-input-for-child-process-exec-command
+            url = url.replace(/(["\s'$`\\])/g,'\\$1');
+
+            return url;
+        }
+    
+        let validateURLs = function( urls:Array<string>, res: Response):boolean {
+            for ( const url of urls ){
+                let valid = validateURL( url, res );
+                if( !valid ){
+                    return false;
+                }
+            }
+    
+            return true;
+        }
+
          // to easily test locally and allow external users to address the API
         res.header("Access-Control-Allow-Origin", "*");
+        res.header("Content-Type", "application/json");
 
         // the pcap2qlog programme expects something in this format:
         // (the "description" fields are optional, are filled in with the URLs if not present)
@@ -61,9 +119,16 @@ export class FileFetchController {
         let tempListFilePath:string|undefined = undefined; // only used if we construct a list ourselves (2. and 3.)
 
         if( req.query.list ){
+            let validURL = validateURL(req.query.list, res);
+            if( !validURL )
+                return;
+
+
             // 1.
             // pcap2qlog has support built-in for downloading remote list files, so just keep it as-is
-            options.push("--list=" + req.query.list);
+            //options.push("--list " + req.query.list);
+            options.push("--list");
+            options.push(req.query.list);
             DEBUG_listContents = req.query.list;
         }
         else if( req.query.file || req.query.file1 ){
@@ -78,6 +143,10 @@ export class FileFetchController {
 
             let captures:Array<ICapture> = [];
             if ( req.query.file ){ // 2.
+                let validURLs = validateURLs([req.query.file, req.query.secrets], res);
+                if( !validURLs )
+                    return;
+
                 captures.push({ capture: req.query.file, secrets: req.query.secrets, description: req.query.desc });
             }
             else{ // req.query.file1 is set => 3.
@@ -85,7 +154,13 @@ export class FileFetchController {
                 let currentFileIndex:number = 1;
 
                 do{
-                    captures.push({ capture: req.query["file" + currentFileIndex], secrets: req.query["secrets" + currentFileIndex], description: req.query["desc" + currentFileIndex] });
+                    let captureURL = req.query["file" + currentFileIndex];
+                    let secretsURL = req.query["secrets" + currentFileIndex];
+                    let validURLs = validateURLs([captureURL, secretsURL], res);
+                    if( !validURLs )
+                        return;
+
+                    captures.push({ capture: captureURL, secrets: secretsURL, description: req.query["desc" + currentFileIndex] });
                     currentFileIndex += 1;
 
                     if( !req.query["file" + currentFileIndex] )
@@ -111,7 +186,9 @@ export class FileFetchController {
             try{
                 tempListFilePath = tempDirectory + path.sep + tempFilename;
                 await writeFileAsync( tempListFilePath, captureString );
-                options.push("--list=" + tempListFilePath );
+                //options.push("--list " + tempListFilePath );
+                options.push("--list");
+                options.push(tempListFilePath);
             }
             catch(e){
                 res.status(500).send( { "error": "Something went wrong writing the list.json file : " + e } );
@@ -123,7 +200,9 @@ export class FileFetchController {
             return;
         }
 
-        options.push("--output=" + cachePath);
+        //options.push("--output " + cachePath);
+        options.push("--output");
+        options.push(cachePath);
 
         try{
             let fileName:string = await Pcap2Qlog.Transform(options);
@@ -143,7 +222,8 @@ export class FileFetchController {
                 }
             }
             
-            res.status(200).send( { qlog: fileContents.toString(), debug_list: DEBUG_listContents } );
+            let jsonContents = JSON.parse( fileContents.toString() );
+            res.status(200).send( { qlog: jsonContents, debug_list: DEBUG_listContents } );
         }
         catch(e){
             res.status(500).send( { "error": "Something went wrong converting the files to qlog : " + e } );
