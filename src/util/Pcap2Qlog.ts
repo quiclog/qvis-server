@@ -17,7 +17,7 @@ export class Pcap2Qlog {
 
             }, timeoutMin * 60 * 1000 ); // 1 minute
 
-            let pcap2qlogLocation = "node /srv/pcap2qlog/out/main.js";
+            let pcap2qlogLocation = "/srv/pcap2qlog/out/main.js";
             //let pcap2qlogLocation = "/home/rmarx/WORK/QUICLOG/pcap-to-qlog/trunk/out/main.js";
             options.unshift(pcap2qlogLocation);
 
