@@ -26,8 +26,8 @@ export class FileFetchController {
 
         let validateURL = function(url:string, res: Response):boolean | string {
             if( url === undefined || url === "" ){
-                console.error("Empty URL passed. If you're setting file=, make sure to set secret= as well!");
-                res.status(500).send( { "error": "Empty URL passed. If you're setting file=, make sure to set secret= as well! "} );
+                console.error("Empty URL passed. If you're setting file=*.pcap, make sure to set secret= as well!");
+                res.status(500).send( { "error": "Empty URL passed. If you're setting file=*.pcap, make sure to set secret= as well! "} );
                 return false;
             }
 
@@ -103,7 +103,8 @@ export class FileFetchController {
         }
         */
         // OR we can just pass a single .pcap and .keys file if we only have one
-        // So, this server-based API supports 3 options:
+        // So, this server-based API supports 4 options:
+        // 0. loadfiles?file=my_file.qlog : a directly usable .qlog file
         // 1. loadfiles?list=url_to_list.json : a fully formed list in the above format, directly usable
         // 2. loadfiles?file=url_to_file.pcap(ng)&secrets=url_to_keys.keys : single file with (optional) keys
         // 3. loadfiles?file1=url_to_file1.pcap&secrets1=url_to_secrets1.keys&file2=url_to_file2.pcap&secrets2=url_to_secrets2.keys ... : transforms this list into the equivalent of the above
@@ -132,8 +133,8 @@ export class FileFetchController {
             DEBUG_listContents = req.query.list;
         }
         else if( req.query.file || req.query.file1 ){
-            // 2. and 3.
-            // we just view 2. as a simpler version of 3.
+            // 0., 2. and 3.
+            // we just view 0. and 2. as a simpler version of 3.
             // we create our own list file in the proper format
             interface ICapture{
                 capture:string;
@@ -142,10 +143,18 @@ export class FileFetchController {
             };
 
             let captures:Array<ICapture> = [];
-            if ( req.query.file ){ // 2.
-                let validURLs = validateURLs([req.query.file, req.query.secrets], res);
-                if( !validURLs )
-                    return;
+            if ( req.query.file ){ // 0. and 2.
+                // .qlog files don't need a secrets file
+                if( req.query.secrets === undefined && req.query.file.indexOf(".qlog") >= 0 ){
+                    let validURLs = validateURLs([req.query.file], res);
+                    if( !validURLs )
+                        return;
+                }
+                else {
+                    let validURLs = validateURLs([req.query.file, req.query.secrets], res);
+                    if( !validURLs )
+                        return;
+                }
 
                 captures.push({ capture: req.query.file, secrets: req.query.secrets, description: req.query.desc });
             }
@@ -156,9 +165,17 @@ export class FileFetchController {
                 do{
                     let captureURL = req.query["file" + currentFileIndex];
                     let secretsURL = req.query["secrets" + currentFileIndex];
-                    let validURLs = validateURLs([captureURL, secretsURL], res);
-                    if( !validURLs )
-                        return;
+
+                    if( secretsURL === undefined && captureURL.indexOf(".qlog") >= 0 ){
+                        let validURLs = validateURLs([captureURL], res);
+                        if( !validURLs )
+                            return;
+                    }
+                    else {
+                        let validURLs = validateURLs([captureURL, secretsURL], res);
+                        if( !validURLs )
+                            return;
+                    }
 
                     captures.push({ capture: captureURL, secrets: secretsURL, description: req.query["desc" + currentFileIndex] });
                     currentFileIndex += 1;
