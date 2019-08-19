@@ -26,6 +26,10 @@ npm install
 npm run build
 cp -ur /srv/qvis/visualizations/dist/* /srv/qvisserver/out/public # -u only copies if files are newer or don't exist yet 
 
+# we don't want to include this large trace in our git repo, so put it at the correct location as an additional build step
+cd /srv/qvisserver/out/public/standalone_data/draft-00
+curl -o mvfst_large.qlog https://quic.edm.uhasselt.be/files/mvfst_large.qlog
+
 echo "---> Step 4 (final): launching qvisserver"
 cd /srv/qvisserver/out  # must be in this folder or the working directory will be wrong inside node 
 node index.js "$@" # this will start the actual web server
