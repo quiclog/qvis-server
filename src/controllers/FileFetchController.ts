@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+const http = require('https');
 
 import * as fs from "fs";
 import * as path from "path";
@@ -104,7 +105,7 @@ export class FileFetchController {
         */
         // OR we can just pass a single .pcap and .keys file if we only have one
         // So, this server-based API supports 4 options:
-        // 0. loadfiles?file=my_file.qlog : a directly usable .qlog file
+        // 0. loadfiles?file=my_file.qlog : a directly usable .qlog file (can also be .qlog.br, .qlog.brotli, .qlog.gz, .qlog.zip, .qlog.gzip)
         // 1. loadfiles?list=url_to_list.json : a fully formed list in the above format, directly usable
         // 2. loadfiles?file=url_to_file.pcap(ng)&secrets=url_to_keys.keys : single file with (optional) keys
         // 3. loadfiles?file1=url_to_file1.pcap&secrets1=url_to_secrets1.keys&file2=url_to_file2.pcap&secrets2=url_to_secrets2.keys ... : transforms this list into the equivalent of the above
@@ -118,6 +119,13 @@ export class FileFetchController {
 
         let options = [];
         let tempListFilePath:string|undefined = undefined; // only used if we construct a list ourselves (2. and 3.)
+
+        // one of both needs to be set to true, but not both!
+        let directDownload = false;
+        let pcapToQlogDownload = false;
+
+        let directDownloadURL = "";
+        let directDownloadEncoding = undefined;
 
         if( req.query.list ){
             let validURL = validateURL(req.query.list, res);
@@ -186,30 +194,61 @@ export class FileFetchController {
                 } while(fileFound);
             }
 
-            const captureList = {
-                description: req.query.desc || "Generated " + (new Date().toLocaleString()),
-                paths: captures
+            // check again for case 0. because we want to do that without pcap2qlog if possible
+            const encodingMap:Map<string,string|undefined> = new Map<string,string|undefined>([
+                [".qlog", undefined],
+                [".qlog.br", "br"],
+                [".qlog.brotli", "br"],
+                [".qlog.gz", "gzip"],
+                [".qlog.gzip", "gzip"],
+                [".qlog.zip", "gzip"]
+            ]);
+
+            let passToPcapToQlog = true;
+            if ( captures.length === 1 && captures[0].secrets === undefined ) {
+
+                for ( let extension of encodingMap.keys() ) {
+                    if ( captures[0].capture.indexOf(extension) >= 0 ) {
+
+                        directDownloadEncoding = encodingMap.get( extension );
+                        directDownloadURL = captures[0].capture;
+
+                        directDownload = true;
+                        passToPcapToQlog = false;
+
+                        break;
+                    }
+                }
             }
 
-            const captureString:string = JSON.stringify(captureList, null, 4);
-            DEBUG_listContents = captureString;
+            if( passToPcapToQlog ){
+                const captureList = {
+                    description: req.query.desc || "Generated " + (new Date().toLocaleString()),
+                    paths: captures
+                }
 
-            // create a temporary file, can be removed later 
-            let tempDirectory = path.resolve( cachePath + path.sep + "inputs" );
-            mkDirByPathSync( tempDirectory );
+                const captureString:string = JSON.stringify(captureList, null, 4);
+                DEBUG_listContents = captureString;
 
-            const tempFilename = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + ".json";
+                // create a temporary file, can be removed later 
+                let tempDirectory = path.resolve( cachePath + path.sep + "inputs" );
+                mkDirByPathSync( tempDirectory );
 
-            try{
-                tempListFilePath = tempDirectory + path.sep + tempFilename;
-                await writeFileAsync( tempListFilePath, captureString );
-                //options.push("--list " + tempListFilePath );
-                options.push("--list");
-                options.push(tempListFilePath);
-            }
-            catch(e){
-                res.status(500).send( { "error": "Something went wrong writing the list.json file : " + e } );
-                return;
+                const tempFilename = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + ".json";
+
+                try{
+                    tempListFilePath = tempDirectory + path.sep + tempFilename;
+                    await writeFileAsync( tempListFilePath, captureString );
+                    //options.push("--list " + tempListFilePath );
+                    options.push("--list");
+                    options.push(tempListFilePath);
+                }
+                catch(e){
+                    res.status(500).send( { "error": "Something went wrong writing the list.json file : " + e } );
+                    return;
+                }
+
+                pcapToQlogDownload = true;
             }
         }
         else{
@@ -217,34 +256,98 @@ export class FileFetchController {
             return;
         }
 
-        //options.push("--output " + cachePath);
-        options.push("--output");
-        options.push(cachePath);
+        if ( directDownload ) {
 
-        try{
-            let fileName:string = await Pcap2Qlog.Transform(options);
-            console.log("Sending back ", fileName);
-            //fileName = "/srv/qvis-cache/cache/9ad6e575fae6fe2295ea249a52379cfa8c2552fd_real.qlog"; // FIXME: REMOVE : ONLY FOR DEBUG!
-            let fileContents:Buffer = await readFileAsync( fileName );
+            // trying to just play a proxy because we should be able to just stream the file down. This is pure CORS-avoidance mode
+            console.log("Direct proxy for file", directDownloadURL, directDownloadEncoding ? directDownloadEncoding : "");
 
-            if( tempListFilePath ){
-                try{
-                    await removeFileAsync( tempListFilePath );
-                }
-                catch(e){
-                    // now this is interesting... it's an error but the user won't really care
-                    // this only has an impact on our hard disk space
-                    // so... for now just ignore and continue
-                    console.error("FileFetchController:loadFiles : could not remove temporary list file ", tempListFilePath, e);
-                }
+            if ( directDownloadEncoding ) {
+                res.header("Content-Encoding", directDownloadEncoding);
             }
-            
-            let jsonContents = JSON.parse( fileContents.toString() );
-            res.status(200).send( { qlog: jsonContents, debug_list: DEBUG_listContents } );
+
+            const parsedDownloadURL = new URL(directDownloadURL);
+
+            let newHeaders = JSON.parse( JSON.stringify(req.headers) ); // poor man's deep copy
+            if ( newHeaders.host ) {
+                delete newHeaders.host;
+            }
+            if ( newHeaders.hostname ) {
+                delete newHeaders.hostname;
+            }
+
+            const fetchFromOriginOptions = {
+                host: parsedDownloadURL.host,
+                // port: parsedDownloadURL.port,
+                path: parsedDownloadURL.pathname + parsedDownloadURL.search,
+                searchParams: parsedDownloadURL.searchParams, // doesn't work in earlier node versions
+                method: req.method,
+                headers: newHeaders
+            };
+
+            console.log("Proxying directly: ", fetchFromOriginOptions);
+
+            // https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+            // https://stackoverflow.com/questions/20351637/how-to-create-a-simple-http-proxy-in-node-js
+
+            try {
+                const proxy = http.request(fetchFromOriginOptions, (originResponse:any) => {
+                    // console.log("Got proxied response back! piping to frontend now!", originResponse.headers);
+
+                    // headers will merge with + overwrite doubles the ones we already set
+                    // shouldn't matter for Content-Encoding (if origin doesn't set these, we do above)
+                    // also shouldn't matter for Content-Type or CORS headers (I'm probably wrong about that...)
+                    
+                    res.writeHead( originResponse.statusCode, originResponse.headers );
+                    
+                    originResponse.pipe( res, { end: true });
+                })
+                .on('error', (err:any) => {
+                    res.status(500).send( { "error": "Something went wrong fetching the files from the origin server through the qvis CORS proxy : " + err, "url": directDownloadURL, "options": fetchFromOriginOptions } );
+                });
+
+                req.pipe( proxy, { end: true }); // without this, the proxy request doesn't fire 
+            }
+            catch(err) {
+                res.status(500).send( { "error": "Something went wrong fetching the files from the origin server through the qvis CORS proxy (catch) : " + err, "url": directDownloadURL, "options": fetchFromOriginOptions } );
+                return;
+            }
+
+
+            // res.status(200).send( { qlog: jsonContents, debug_list: DEBUG_listContents } );
         }
-        catch(e){
-            res.status(500).send( { "error": "Something went wrong converting the files to qlog : " + e } );
-            return;
+        else if ( pcapToQlogDownload ) {
+            // we need to do more than just stream the file (e.g., combine multiple files, transform pcaps into qlog, etc.)
+            // for this, we pass to the pcap2qlog tool
+
+            //options.push("--output " + cachePath);
+            options.push("--output");
+            options.push(cachePath);
+
+            try{
+                let fileName:string = await Pcap2Qlog.Transform(options);
+                console.log("Sending back after pcap2qlog: ", fileName);
+                //fileName = "/srv/qvis-cache/cache/9ad6e575fae6fe2295ea249a52379cfa8c2552fd_real.qlog"; // FIXME: REMOVE : ONLY FOR DEBUG!
+                let fileContents:Buffer = await readFileAsync( fileName );
+
+                if( tempListFilePath ){
+                    try{
+                        await removeFileAsync( tempListFilePath );
+                    }
+                    catch(e){
+                        // now this is interesting... it's an error but the user won't really care
+                        // this only has an impact on our hard disk space
+                        // so... for now just ignore and continue
+                        console.error("FileFetchController:loadFiles : could not remove temporary list file ", tempListFilePath, e);
+                    }
+                }
+                
+                let jsonContents = JSON.parse( fileContents.toString() );
+                res.status(200).send( { qlog: jsonContents, debug_list: DEBUG_listContents } );
+            }
+            catch(e){
+                res.status(500).send( { "error": "Something went wrong converting the files to qlog : " + e } );
+                return;
+            }
         }
 
 
