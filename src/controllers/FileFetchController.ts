@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-const http = require('https');
+const { http, https } = require('follow-redirects');
 
 import * as fs from "fs";
 import * as path from "path";
@@ -290,7 +290,7 @@ export class FileFetchController {
             // https://stackoverflow.com/questions/20351637/how-to-create-a-simple-http-proxy-in-node-js
 
             try {
-                const proxy = http.request(fetchFromOriginOptions, (originResponse:any) => {
+                const proxy = https.request(fetchFromOriginOptions, (originResponse:any) => {
                     // console.log("Got proxied response back! piping to frontend now!", originResponse.headers);
 
                     // headers will merge with + overwrite doubles the ones we already set
