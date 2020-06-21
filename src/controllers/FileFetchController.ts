@@ -111,7 +111,7 @@ export class FileFetchController {
         // 3. loadfiles?file1=url_to_file1.pcap&secrets1=url_to_secrets1.keys&file2=url_to_file2.pcap&secrets2=url_to_secrets2.keys ... : transforms this list into the equivalent of the above
         // options 2. and 3. can also have optional "desc" and "desc1", "desc2", "desc3" etc. parameters to add descriptions
 
-        // TODO: FIXME: pcap2qlog expects urls to have proper extensions (e.g., .pcap, .keys, .json and .qlog)
+        // TODO: FIXME: pcap2qlog expects urls to have proper extensions (e.g., .pcap, .pcapng, .keys, .json and .qlog)
         // validate for this here and quit early if this is violated 
 
         let cachePath:string = "/srv/qvis-cache";
@@ -158,6 +158,12 @@ export class FileFetchController {
                     if( !validURLs )
                         return;
                 }
+                // neither do .pcapng files
+                else if( req.query.secrets === undefined && req.query.file.indexOf(".pcapng") >= 0 ){
+                    let validURLs = validateURLs([req.query.file], res);
+                    if( !validURLs )
+                        return;
+                }
                 else {
                     let validURLs = validateURLs([req.query.file, req.query.secrets], res);
                     if( !validURLs )
@@ -176,6 +182,11 @@ export class FileFetchController {
 
                     if( secretsURL === undefined && captureURL.indexOf(".qlog") >= 0 ){
                         let validURLs = validateURLs([captureURL], res);
+                        if( !validURLs )
+                            return;
+                    }
+                    else if( secretsURL === undefined && captureURL.indexOf(".pcapng") >= 0 ){
+                        let validURLs = validateURLs([req.query.file], res);
                         if( !validURLs )
                             return;
                     }
