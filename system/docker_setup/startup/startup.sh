@@ -8,6 +8,7 @@
 
 echo "---> Step 1: updating pcap2qlog"
 cd /srv/pcap2qlog/
+git reset --hard HEAD
 git pull origin master
 npm install
 ./node_modules/typescript/bin/tsc -p ./
@@ -21,6 +22,7 @@ npm install
 echo "---> Step 3: updating qvis (this will take a while during webpack compilation)"
 cd /srv/qvis/visualizations
 git checkout -- package-lock.json # for some very strange and unknown reason, this gets updated locally before the pull... drop those changes
+git reset --hard HEAD # prevent issues like those with packet-lock.json above more generally
 git pull origin master
 npm install
 npm run build
