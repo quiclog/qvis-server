@@ -3,6 +3,7 @@
 # typical way to call this: ./run_server.sh
 
 sudo docker stop qvisserver && sudo docker rm qvisserver  
-sudo docker run --privileged --name qvisserver -p 8443:443 --restart unless-stopped --volume=/srv/qvis-cache:/srv/qvis-cache -d qvis/server:latest "$@"
+# we override the /srv/certs with a locally mounted dir so we don't have to rebuild the image when the certs change.
+sudo docker run --privileged --name qvisserver -p 8443:443 --restart unless-stopped --volume=/home/speeder/qvis-server/trunk/system/docker_setup/qvis:/srv/certs --volume=/srv/qvis-cache:/srv/qvis-cache -d qvis/server:latest "$@"
 
 # -p 8089:80
