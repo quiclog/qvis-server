@@ -286,6 +286,20 @@ export class FileFetchController {
                 delete newHeaders.hostname;
             }
 
+            // we're trying to bypass CORS here, so remove these
+            if ( newHeaders["sec-fetch-site"] ) {
+                delete newHeaders["sec-fetch-site"];
+            }
+            if ( newHeaders["sec-fetch-mode"] ) {
+                delete newHeaders["sec-fetch-mode"]; 
+            }
+            if ( newHeaders["sec-fetch-dest"] ) {
+                delete newHeaders["sec-fetch-dest"]; 
+            }
+            if ( newHeaders["sec-fetch-user"] ) {
+                delete newHeaders["sec-fetch-user"]; 
+            }
+
             const fetchFromOriginOptions = {
                 host: parsedDownloadURL.host,
                 // port: parsedDownloadURL.port,
@@ -301,22 +315,45 @@ export class FileFetchController {
             // https://stackoverflow.com/questions/20351637/how-to-create-a-simple-http-proxy-in-node-js
 
             try {
-                const proxy = https.request(fetchFromOriginOptions, (originResponse:any) => {
-                    // console.log("Got proxied response back! piping to frontend now!", originResponse.headers);
+                if ( directDownloadURL.startsWith("https") ) {
 
-                    // headers will merge with + overwrite doubles the ones we already set
-                    // shouldn't matter for Content-Encoding (if origin doesn't set these, we do above)
-                    // also shouldn't matter for Content-Type or CORS headers (I'm probably wrong about that...)
-                    
-                    res.writeHead( originResponse.statusCode, originResponse.headers );
-                    
-                    originResponse.pipe( res, { end: true });
-                })
-                .on('error', (err:any) => {
-                    res.status(500).send( { "error": "Something went wrong fetching the files from the origin server through the qvis CORS proxy : " + err, "url": directDownloadURL, "options": fetchFromOriginOptions } );
-                });
+                    const proxy = https.request(fetchFromOriginOptions, (originResponse:any) => {
+                        // console.log("Got proxied response back! piping to frontend now!", originResponse.headers);
 
-                req.pipe( proxy, { end: true }); // without this, the proxy request doesn't fire 
+                        // headers will merge with + overwrite doubles the ones we already set
+                        // shouldn't matter for Content-Encoding (if origin doesn't set these, we do above)
+                        // also shouldn't matter for Content-Type or CORS headers
+                        
+                        res.writeHead( originResponse.statusCode, originResponse.headers );
+                        
+                        originResponse.pipe( res, { end: true });
+                    })
+                    .on('error', (err:any) => {
+                        res.status(500).send( { "error": "Something went wrong fetching the files from the origin server through the qvis CORS proxy : " + err, "url": directDownloadURL, "options": fetchFromOriginOptions } );
+                    });
+
+                    req.pipe( proxy, { end: true }); // without this, the proxy request doesn't fire 
+                }
+                else if ( directDownloadURL.startsWith("http") ) {
+
+                    if ( newHeaders["upgrade-insecure-requests"] ){
+                        delete newHeaders["upgrade-insecure-requests"];
+                    }
+
+                    const proxy = http.request(fetchFromOriginOptions, (originResponse:any) => {
+                        res.writeHead( originResponse.statusCode, originResponse.headers );
+                        
+                        originResponse.pipe( res, { end: true });
+                    })
+                    .on('error', (err:any) => {
+                        res.status(500).send( { "error": "Something went wrong fetching the files from the origin server through the qvis CORS proxy : " + err, "url": directDownloadURL, "options": fetchFromOriginOptions } );
+                    });
+
+                    req.pipe( proxy, { end: true }); // without this, the proxy request doesn't fire 
+                }
+                else {
+                    throw new Error("Unsupported protocol " + directDownloadURL);
+                }
             }
             catch(err) {
                 res.status(500).send( { "error": "Something went wrong fetching the files from the origin server through the qvis CORS proxy (catch) : " + err, "url": directDownloadURL, "options": fetchFromOriginOptions } );
