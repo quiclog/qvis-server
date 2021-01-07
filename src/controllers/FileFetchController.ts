@@ -105,7 +105,7 @@ export class FileFetchController {
         */
         // OR we can just pass a single .pcap and .keys file if we only have one
         // So, this server-based API supports 4 options:
-        // 0. loadfiles?file=my_file.qlog : a directly usable .qlog file (can also be .qlog.br, .qlog.brotli, .qlog.gz, .qlog.zip, .qlog.gzip)
+        // 0. loadfiles?file=my_file.qlog/.netlog : a directly usable .qlog/.netlog file (can also be .qlog.br, .qlog.brotli, .qlog.gz, .qlog.zip, .qlog.gzip)
         // 1. loadfiles?list=url_to_list.json : a fully formed list in the above format, directly usable
         // 2. loadfiles?file=url_to_file.pcap(ng)&secrets=url_to_keys.keys : single file with (optional) keys
         // 3. loadfiles?file1=url_to_file1.pcap&secrets1=url_to_secrets1.keys&file2=url_to_file2.pcap&secrets2=url_to_secrets2.keys ... : transforms this list into the equivalent of the above
@@ -164,6 +164,12 @@ export class FileFetchController {
                     if( !validURLs )
                         return;
                 }
+                // neither do .netlog files
+                else if( req.query.secrets === undefined && req.query.file.indexOf(".netlog") >= 0 ){
+                    let validURLs = validateURLs([req.query.file], res);
+                    if( !validURLs )
+                        return;
+                }
                 else {
                     let validURLs = validateURLs([req.query.file, req.query.secrets], res);
                     if( !validURLs )
@@ -212,7 +218,14 @@ export class FileFetchController {
                 [".qlog.brotli", "br"],
                 [".qlog.gz", "gzip"],
                 [".qlog.gzip", "gzip"],
-                [".qlog.zip", "gzip"]
+                [".qlog.zip", "gzip"],
+                
+                [".netlog", undefined],
+                [".netlog.br", "br"],
+                [".netlog.brotli", "br"],
+                [".netlog.gz", "gzip"],
+                [".netlog.gzip", "gzip"],
+                [".netlog.zip", "gzip"],
             ]);
 
             let passToPcapToQlog = true;
