@@ -9,12 +9,12 @@ fi
 TAG=$1
 
 # wireshark base-image
-cd /srv/qvisserver/system/docker_setup/
+cd /home/qvis-server/trunk/system/docker_setup/
 sudo docker build --no-cache -t qvis/wireshark:$TAG wireshark/
 sudo docker tag qvis/wireshark:$TAG qvis/wireshark:latest
 
 # qvisserver module
-cd /srv/qvisserver/system/docker_setup/
+cd /home/qvis-server/trunk/system/docker_setup/
 sudo docker build --no-cache -t qvis/server:$TAG qvis/
 sudo docker tag qvis/server:$TAG qvis/server:latest
 
